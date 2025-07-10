@@ -1,4 +1,5 @@
 import serial
+import struct
 from psychopy import parallel
 import numpy as np
 
@@ -69,6 +70,7 @@ class NeuroScanPort:
             self.port.write([int(label)])
         else:
             self.port.setData(int(label))
+
 
 
 class NeuraclePort:

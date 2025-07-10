@@ -1,8 +1,11 @@
+import sys
+sys.path.insert(0, r"C:\Users\服务器\Desktop\meta-rsvp\MetaBCI")
 import math
 
 from psychopy import monitors
 import numpy as np
 from metabci.brainstim.paradigm import (
+    RSVP,
     SSVEP,
     P300,
     MI,
@@ -32,7 +35,7 @@ if __name__ == "__main__":
         bg_color_warm=bg_color_warm,  # 范式选择界面背景颜色[-1~1,-1~1,-1~1]
         screen_id=0,
         win_size=win_size,  # 范式边框大小(像素表示)，默认[1920,1080]
-        is_fullscr=False,  # True全窗口,此时win_size参数默认屏幕分辨率
+        is_fullscr=True,  # True全窗口,此时win_size参数默认屏幕分辨率
         record_frames=False,
         disable_gc=False,
         process_priority="normal",
@@ -41,6 +44,48 @@ if __name__ == "__main__":
     win = ex.get_window()
 
     # q退出范式界面
+
+    """
+    RSVP
+    """
+   
+    image_dir = r"C:\Users\服务器\Desktop\meta-rsvp\images"  # 顶层目录，plane/non_plane作为子文件夹
+    image_size = (500, 500)
+    nrep = 16
+    bg_color = np.array([-1, -1, -1])
+    display_time = 1.0     # block开始提示时间
+    rest_time = 2.0        # block结束休息时间
+    port_addr = 'COM3'                  #   无端口：None；  NeuroScan :"COM5"; 
+    online = False         # True/False，根据需求切换
+    lsl_source_id = "meta_online_worker"   # 或"你的LSL-ID"，仅在线需要
+
+    # ==== 3. RSVP 类实例化与图片配置 ====
+    basic_RSVP = RSVP(win=win)
+    basic_RSVP.config_image(
+        image_dir=image_dir,
+        image_size=image_size,
+    )
+
+
+    ex.register_paradigm(
+        "basic_RSVP",               # 范式名称
+        paradigm,                   # 范式主控函数（保持不变）
+        VSObject=basic_RSVP,
+        bg_color=bg_color,
+        display_time=display_time,
+        rest_time=rest_time,
+        port_addr=port_addr,
+        nrep=nrep,
+        pdim="rsvp",
+        online=online,
+        lsl_source_id=lsl_source_id,
+        device_type="NeuroScan"
+        
+    )
+
+
+
+
     """
     SSVEP
     """
@@ -80,7 +125,7 @@ if __name__ == "__main__":
     index_time = 1  # 提示时长，转移视线
     rest_time = 0.5  # 提示后的休息时长
     response_time = 1  # 在线反馈
-    port_addr = "COM8"  #  0xdefc                                  # 采集主机端口
+    port_addr = "COM5"  #  0xdefc                                  # 采集主机端口
     port_addr = None  #  0xdefc
     nrep = 2  # block数目
     lsl_source_id = "meta_online_worker"  # None                 # source id
@@ -193,7 +238,7 @@ if __name__ == "__main__":
     index_time = 0.5  # 提示时长，转移视线
     response_time = 2  # 在线反馈
     rest_time = 0.5  # 提示后的休息时长
-    port_addr = "COM8"  #  0xdefc                                  # 采集主机端口
+    port_addr = "COM5"  #  0xdefc                                  # 采集主机端口
     nrep = 1  # block数目
     lsl_source_id = "meta_online_worker"  # None                 # source id
     online = False  # True                                       # 在线实验的标志
@@ -249,7 +294,7 @@ if __name__ == "__main__":
     rest_time = 1  # 提示后的休息时长
     image_time = 4  # 想象时长
     response_time = 2  # 在线反馈
-    port_addr = "COM8"  #  0xdefc                                  # 采集主机端口
+    port_addr = "COM5"  #  0xdefc                                  # 采集主机端口
     nrep = 15  # block数目
     lsl_source_id = "meta_online_worker"  # source id
     online = False  # True                                       # 在线实验的标志

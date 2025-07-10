@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 import math
 
+
 # load in basic modules
 import os
 import os.path as op
 import string
 import numpy as np
 from math import pi
+from glob import glob
 from psychopy import data, visual, event
 from psychopy.visual.circle import Circle
-from pylsl import StreamInlet, resolve_byprop  # type: ignore
+from pylsl import StreamInlet, resolve_byprop
 from .utils import NeuroScanPort, NeuraclePort, _check_array_like
 import threading
 from copy import copy
@@ -268,18 +270,14 @@ class KeyboardInterface(object):
             self.stim_pos = stim_pos
         # conventional design method
         elif (stim_pos is None) and (rows * columns >= self.n_elements):
-            # according to the given rows of columns, coordinates will be
-            # automatically converted
+            # according to the given rows of columns, coordinates will be automatically converted
             stim_pos = np.zeros((self.n_elements, 2))
-            # divide the whole screen into rows*columns' blocks, and pick the
-            # center of each block
+            # divide the whole screen into rows*columns' blocks, and pick the center of each block
             first_pos = (
                 np.array([self.win_size[0] / columns, self.win_size[1] / rows]) / 2
             )
-            if (first_pos[0] < stim_length /
-                    2) or (first_pos[1] < stim_width / 2):
-                raise Exception(
-                    "Too much blocks or too big the stimulus region!")
+            if (first_pos[0] < stim_length / 2) or (first_pos[1] < stim_width / 2):
+                raise Exception("Too much blocks or too big the stimulus region!")
             for i in range(columns):
                 for j in range(rows):
                     stim_pos[i * rows + j] = first_pos + [i, j] * first_pos * 2
@@ -381,10 +379,8 @@ class KeyboardInterface(object):
             Exception: Insufficient characters
         """
 
-        brige_length = self.win_size[0] / 2 + \
-            self.stim_pos[0][0] - self.stim_length / 2
-        brige_width = self.win_size[1] / 2 - \
-            self.stim_pos[0][1] - self.stim_width / 2
+        brige_length = self.win_size[0] / 2 + self.stim_pos[0][0] - self.stim_length / 2
+        brige_width = self.win_size[1] / 2 - self.stim_pos[0][1] - self.stim_width / 2
 
         self.rect_response = visual.Rect(
             win=self.win,
@@ -502,8 +498,72 @@ class SemiCircle(Circle):
         )
 
 
-# standard SSVEP paradigm
 
+
+
+class RSVP(VisualStim):
+    """
+    Create RSVP stimuli with all required properties for MetaBCI framework.
+    """
+
+    def __init__(self, win, colorSpace="rgb", allowGUI=True, refresh_rate=120):
+        super().__init__(win=win, colorSpace=colorSpace, allowGUI=allowGUI)
+        self.image_dir = r"./images"
+        self.image_size = [500, 500]
+        self.target_imgs = []
+        self.nontarget_imgs = []
+        self.image_stim = visual.ImageStim(self.win, size=self.image_size)
+        self.refresh_rate = refresh_rate
+
+        # ----- 兼容主控 paradigm 所需属性 -----
+        self.reset_res_text = ">:  "         # 默认反馈文本
+        self.reset_res_pos = (0, 0)          # 默认反馈位置（可按实际调整）
+
+        self.text_response = visual.TextStim(
+            win=self.win,
+            text=self.reset_res_text,
+            pos=self.reset_res_pos,
+            color=(1, 1, 1),
+            height=40,
+            units="pix",
+        )
+        self.res_text_pos = self.reset_res_pos    # 反馈文本位置（同步 paradigm 习惯）
+        self.symbol_text = self.reset_res_text    # 反馈内容（同步 paradigm 习惯）
+
+    def config_image(self, image_dir, image_size=(500, 500)):
+        self.image_dir = image_dir
+        self.image_size = image_size
+        self.image_stim.size = image_size
+
+        plane_dir = os.path.join(image_dir, "plane")
+        nonplane_dir = os.path.join(image_dir, "non_plane")
+        self.target_imgs = sorted(glob(os.path.join(plane_dir, "*.png")))
+        self.nontarget_imgs = sorted(glob(os.path.join(nonplane_dir, "*.png")))
+        if not self.target_imgs or not self.nontarget_imgs:
+            raise ValueError("plane 或 non_plane 目录下无图片！")
+
+    def get_block_images(self, n_total=100, n_target=8, target_interval=6):
+        if len(self.target_imgs) < n_target or len(self.nontarget_imgs) < (n_total - n_target):
+            raise ValueError("plane/non_plane 图片数量不足")
+
+        chosen_targets = random.sample(self.target_imgs, n_target)
+        chosen_nontargets = random.sample(self.nontarget_imgs, n_total - n_target)
+
+        image_sequence = []
+        target_indices = []
+        nontargets = chosen_nontargets
+        for t in chosen_targets:
+            use = nontargets[:target_interval] if len(nontargets) >= target_interval else nontargets
+            image_sequence += use
+            nontargets = nontargets[len(use):]
+            image_sequence.append(t)
+            target_indices.append(len(image_sequence) - 1)
+        image_sequence += nontargets
+        return image_sequence, target_indices
+
+    def draw_image(self, image_path):
+        self.image_stim.image = image_path
+        self.image_stim.draw()
 
 class SSVEP(VisualStim):
     """Create SSVEP stimuli.
@@ -848,8 +908,7 @@ class P300(VisualStim):
 
         # start
         self.flash_stimuli = []
-        self.order_index = np.zeros(
-            [int((row_num + col_num) * self.stim_round)])
+        self.order_index = np.zeros([int((row_num + col_num) * self.stim_round)])
         for round_num in range(self.stim_round):
             row_order_index = list(range(0, row_num))
             np.random.shuffle(row_order_index)
@@ -901,8 +960,7 @@ class P300(VisualStim):
                         + refresh_rate * (stim_duration)
                     ),
                 ] = [-1, -1, -1]
-                col_label[int(tmp * refresh_rate *
-                              (stim_duration + stim_ISI))] = 1
+                col_label[int(tmp * refresh_rate * (stim_duration + stim_ISI))] = 1
                 tmp += 1
 
             tmp = 0
@@ -915,12 +973,10 @@ class P300(VisualStim):
                             + refresh_rate * stim_duration
                         ),
                     ] = [-1, -1, -1]
-                    row_label[int(tmp * refresh_rate *
-                                  (stim_duration + stim_ISI))] = 1
+                    row_label[int(tmp * refresh_rate * (stim_duration + stim_ISI))] = 1
                 tmp += 1
 
-            stim_colors = np.concatenate(
-                (stim_colors_row, stim_colors_col), axis=1)
+            stim_colors = np.concatenate((stim_colors_row, stim_colors_col), axis=1)
             self.roworcol_label = np.concatenate(
                 (row_label, col_label), axis=0
             )  # each round is the same
@@ -1382,10 +1438,7 @@ class AVEP(VisualStim):
             avep_num = int(tar_fre * stim_time)
             fold_num = int(np.ceil(avep_num / len(sequence[target_i])))
             tar_seq = np.tile(sequence[target_i], fold_num)[0:avep_num]
-            sample = (
-                signal.square(
-                    2 * pi * tar_fre * t,
-                    duty=self.duty) + 1) / 2
+            sample = (signal.square(2 * pi * tar_fre * t, duty=self.duty) + 1) / 2
             sample = sample.astype(int)
             a = np.append(0, sample)
             b = np.diff(a)
@@ -1393,8 +1446,7 @@ class AVEP(VisualStim):
             c = np.append(c, sample.shape[0])
             d = np.array([], "int")
             for avep_i in range(avep_num):
-                d = np.append(
-                    d, sample[c[avep_i]: c[avep_i + 1]] * tar_seq[avep_i])
+                d = np.append(d, sample[c[avep_i]: c[avep_i + 1]] * tar_seq[avep_i])
             stim_ary[target_i] = d
         self.stim_ary = []
         for clu_i in range(self.cluster_num):
@@ -1439,7 +1491,8 @@ class AVEP(VisualStim):
             )
         else:
             self.stim_dot_pos = np.zeros(
-                (self.stim_frames, self.cluster_num * self.n_elements, self.stim_num, 2))
+                (self.stim_frames, self.cluster_num * self.n_elements, self.stim_num, 2)
+            )
             for stim_i in range(self.stim_frames):
                 for clu_i in range(self.cluster_num):
                     width_rand = random.randint(-3, 3)
@@ -1477,13 +1530,8 @@ class AVEP(VisualStim):
         self.stim_colors = stim_colors
 
     def config_color(
-            self,
-            refresh_rate,
-            stim_time,
-            stim_color,
-            sequence,
-            stim_opacities=1,
-            **kwargs):
+        self, refresh_rate, stim_time, stim_color, sequence, stim_opacities=1, **kwargs
+    ):
         """Set AVEP paradigm interface parameters, including screen refresh rate, stimulus time, and stimulus color.
 
         Parameters
@@ -1566,12 +1614,15 @@ class AVEP(VisualStim):
         stim_dot_pos = np.concatenate(
             [self.stim_dot_pos[:, :, i, :] for i in range(self.stim_num)], axis=1
         )
-        stim_size = np.concatenate([self.stim_sizes for i in range(
-            self.stim_num * self.cluster_num)], axis=0)
-        stim_oris = np.concatenate([self.stim_oris for i in range(
-            self.stim_num * self.cluster_num)], axis=0)
-        stim_sfs = np.concatenate([self.stim_sfs for i in range(
-            self.stim_num * self.cluster_num)], axis=0)
+        stim_size = np.concatenate(
+            [self.stim_sizes for i in range(self.stim_num * self.cluster_num)], axis=0
+        )
+        stim_oris = np.concatenate(
+            [self.stim_oris for i in range(self.stim_num * self.cluster_num)], axis=0
+        )
+        stim_sfs = np.concatenate(
+            [self.stim_sfs for i in range(self.stim_num * self.cluster_num)], axis=0
+        )
         stim_contrs = np.concatenate(
             [self.stim_contrs for i in range(self.stim_num * self.cluster_num)], axis=0
         )
@@ -1817,13 +1868,10 @@ class SSAVEP(VisualStim):
         )
         self.positions_rad = positions
         self.stim_pos = self.positions_rad
-        self.element_mask = np.zeros(
-            (self.n_groups, self.n_members), dtype=np.bool)
+        self.element_mask = np.zeros((self.n_groups, self.n_members), dtype=np.bool)
         self.radius = radius
         self.angles = angles
-        self.angles = np.tile(
-            np.reshape(
-                self.angles, (-1, 1)), (1, self.n_members))
+        self.angles = np.tile(np.reshape(self.angles, (-1, 1)), (1, self.n_members))
         self.stim_pos = np.array(self.stim_pos)
         self.positions = np.tile(positions, (1, self.n_members))
         self.member_angles = np.append(
@@ -1840,8 +1888,7 @@ class SSAVEP(VisualStim):
         self.member_positions = np.tensordot(
             rotate_mat, np.array([-0.5, 0.5]) * self.radius, axes=((1), (0))
         ).T
-        self.member_positions = np.reshape(
-            self.member_positions, (self.n_elements, -1))
+        self.member_positions = np.reshape(self.member_positions, (self.n_elements, -1))
         xys = self.positions + self.member_positions
         xys = np.reshape(xys, (-1, 2))
         self.element_pos = xys
@@ -1923,11 +1970,8 @@ class SSAVEP(VisualStim):
 
         """
         _TEX = op.join(
-            op.abspath(
-                op.dirname(
-                    op.abspath(__file__))),
-            "textures",
-            "ring.png")
+            op.abspath(op.dirname(op.abspath(__file__))), "textures", "ring.png"
+        )
 
         sizes = sizes
         ring_colors1 = np.tile(ring_colors, (1, self.n_elements, 1))
@@ -1965,11 +2009,8 @@ class SSAVEP(VisualStim):
 
         """
         _TEX = op.join(
-            op.abspath(
-                op.dirname(
-                    op.abspath(__file__))),
-            "textures",
-            "centroid.png")
+            op.abspath(op.dirname(op.abspath(__file__))), "textures", "centroid.png"
+        )
         target_colors1 = np.tile(target_colors, (1, self.n_elements, 1))
         self.center_target = self.create_elements(
             win,
@@ -2054,14 +2095,16 @@ class SSAVEP(VisualStim):
             tar_codes = self.codes[tar_idx]
             for seq_idx in range(self.n_sequence):
                 for seq_group_idx in range(len(tar_codes[seq_idx])):
-                    self.stim_colors1[:,
-                                      tar_idx * self.n_members + tar_codes[seq_idx][seq_group_idx],
-                                      seq_idx,
-                                      :,
-                                      ] = self.stim_colors_member[:,
-                                                                  tar_idx * self.n_members + tar_codes[seq_idx][seq_group_idx],
-                                                                  :,
-                                                                  ]
+                    self.stim_colors1[
+                        :,
+                        tar_idx * self.n_members + tar_codes[seq_idx][seq_group_idx],
+                        seq_idx,
+                        :,
+                    ] = self.stim_colors_member[
+                        :,
+                        tar_idx * self.n_members + tar_codes[seq_idx][seq_group_idx],
+                        :,
+                    ]
         self.stim_colors = np.concatenate(
             [self.stim_colors1[:, :, i, :] for i in range(self.n_sequence)], axis=0
         )
@@ -2102,13 +2145,8 @@ class SSAVEP(VisualStim):
 
         """
         self.config_flash_array(
-            refresh_rate,
-            freqs,
-            phases,
-            codes,
-            stim_time_member,
-            stim_color,
-            stimtype)
+            refresh_rate, freqs, phases, codes, stim_time_member, stim_color, stimtype
+        )
         self.flash_stimuli = self.create_elements(
             win,
             units="height",
@@ -2125,12 +2163,7 @@ class SSAVEP(VisualStim):
             texRes=2,
         )
 
-    def generate_octants(
-            self,
-            win,
-            outter_deg=4,
-            inner_deg=2,
-            member_degree=None):
+    def generate_octants(self, win, outter_deg=4, inner_deg=2, member_degree=None):
         """
         Generate the sub-stimulus and save the .png file.
 
@@ -2239,8 +2272,7 @@ class SSAVEP(VisualStim):
         #     outter_circle, inner_circle
         # ]
         rect = [-2 * radius * win_size[1] / win_size[0], 0, 0, -2 * radius]
-        screenshot = visual.BufferImageStim(
-            win, stim=stims, buffer="back", rect=rect)
+        screenshot = visual.BufferImageStim(win, stim=stims, buffer="back", rect=rect)
         image = Image.fromarray(np.array(screenshot.image), mode="RGB")
         image.putalpha(image.convert("L"))
         image.save("adaptive_octants.png")
@@ -2293,12 +2325,11 @@ class SSAVEP(VisualStim):
                 the resolution of the texture
 
         """
-        sizes = (np.repeat(sizes, nElements, axis=0)
-                 if len(sizes) == 1 else np.array(sizes))
-        xys = np.repeat(xys, nElements, axis=0) if len(
-            xys) == 1 else np.array(xys)
-        oris = np.repeat(oris, nElements, axis=0) if len(
-            oris) == 1 else np.array(oris)
+        sizes = (
+            np.repeat(sizes, nElements, axis=0) if len(sizes) == 1 else np.array(sizes)
+        )
+        xys = np.repeat(xys, nElements, axis=0) if len(xys) == 1 else np.array(xys)
+        oris = np.repeat(oris, nElements, axis=0) if len(oris) == 1 else np.array(oris)
 
         contrs = (
             np.repeat(contrs, nElements, axis=0)
@@ -2331,6 +2362,7 @@ class SSAVEP(VisualStim):
 
         return stim
 
+        
 
 class GetPlabel_MyTherad:
     """
@@ -2409,8 +2441,7 @@ class GetPlabel_MyTherad:
                         online_text_pos[0] + self.symbol_height / 3,
                         online_text_pos[1],
                     )
-                    online_symbol_text = online_symbol_text + \
-                        self.symbols[predict_id]
+                    online_symbol_text = online_symbol_text + self.symbols[predict_id]
             except Exception:
                 pass
 
@@ -2428,72 +2459,19 @@ def paradigm(
     win,
     bg_color,
     display_time=1.0,
-    index_time=1.0,
     rest_time=0.5,
     response_time=2,
     image_time=2,
+    index_time=1.0,
     port_addr=9045,
     nrep=1,
     pdim="ssvep",
     lsl_source_id=None,
     online=None,
     device_type="NeuroScan",
+
 ):
-    """
-    The classical paradigm is implemented, the task flow is defined, the ' q '
-    exit paradigm is clicked, and the start selection interface is returned.
 
-    author: Wei Zhao
-
-    Created on: 2022-07-30
-
-    update log:
-
-        2022-08-10 by Wei Zhao
-
-        2022-08-03 by Shengfu Wen
-
-        2022-12-05 by Jie Mei
-
-        2023-12-09 by Lixia Lin <1582063370@qq.com> Add code annotation
-
-    Parameters
-    ----------
-        VSObject:
-            Examples of the three paradigms.
-        win:
-            window.
-        bg_color: ndarray
-            Background color.
-        fps: int
-            Display refresh rate.
-        display_time: float
-            Keyboard display time before 1st index.
-        index_time: float
-            Indicator display time.
-        rest_time: float, optional
-            SSVEP and P300 paradigm: the time interval between the target cue and the start of the stimulus.
-            MI paradigm: the time interval between the end of stimulus presentation and the target cue.
-        respond_time: float, optional
-            Feedback time during online experiment.
-        image_time: float, optional,
-            MI paradigm: Image time.
-        port_addr:
-             Computer port , hexadecimal or decimal.
-        nrep: int
-            Num of blocks.
-        pdim: str
-            One of the three paradigms can be 'ssvep ', ' p300 ', ' mi ' and ' con-ssvep '.
-        mi_flag: bool
-            Flag of MI paradigm.
-        lsl_source_id: str
-            The id of communication with the online processing program needs to be consistent between the two parties.
-        online: bool
-            Flag of online experiment.
-        device_type: str
-            See support device list in brainstim README file
-
-    """
 
     if not _check_array_like(bg_color, 3):
         raise ValueError("bg_color should be 3 elements array-like object.")
@@ -2501,22 +2479,26 @@ def paradigm(
     fps = VSObject.refresh_rate
 
     if device_type == "NeuroScan":
-        port = NeuroScanPort(port_addr, use_serial=True) if port_addr else None
+        port = NeuroScanPort(port_addr, use_serial=True) if port_addr else None     # 代码设置为串行通信
     elif device_type == "Neuracle":
         port = NeuraclePort(port_addr) if port_addr else None
+
     else:
         raise KeyError(
-            "Unknown device type: {}, please check your input".format(device_type))
+            "Unknown device type: {}, please check your input".format(device_type)
+        )
     port_frame = int(0.05 * fps)
 
     inlet = False
     if online:
         if (
-            pdim == "ssvep"
+            pdim == "rsvp"
+            or pdim == "ssvep"
             or pdim == "p300"
             or pdim == "con-ssvep"
             or pdim == "avep"
             or pdim == "ssavep"
+           
         ):
             VSObject.text_response.text = copy(VSObject.reset_res_text)
             VSObject.text_response.pos = copy(VSObject.reset_res_pos)
@@ -2531,15 +2513,118 @@ def paradigm(
             if not streams:
                 return
             inlet = StreamInlet(streams[0])  # receive stream data
+    
 
-    if pdim == "ssvep":
+    if pdim == "rsvp":
+        stim_duration = 0.2
+        # 固定刷新率为 60Hz 来计算帧数
+        fixed_fps = 120
+        n_frames = int(stim_duration * fps)
+
+        print(f"图片每帧显示 n_frames={n_frames}")
+        n_stim = 100
+        n_target = 8
+        target_interval = 9
+
+        # ----------- block级循环，每个block可看做一次“试次” -----------
+        conditions = [{"id": i} for i in range(nrep)]
+        trials = data.TrialHandler(conditions, 1, name="RSVP", method="sequential")
+
+        # ----------- 在线流准备 -----------
+        real_inlet = None
+        if online and lsl_source_id:
+            streams = resolve_byprop('source_id', lsl_source_id, timeout=5)
+            if streams:
+                real_inlet = StreamInlet(streams[0])
+            else:
+                print(f"LSL 流 {lsl_source_id} 未发现，切换为离线模式。")
+                real_inlet = None
+
+        for trial in trials:
+            block_idx = trial["id"]
+
+            # ----------- 退出检测 -----------
+            keys = event.getKeys(["q", "escape"])
+            if "q" in keys or "escape" in keys:
+                break
+
+            # ----------- 构建本block的图片序列 -----------
+            image_sequence, target_indices = VSObject.get_block_images(
+                n_total=n_stim, n_target=n_target, target_interval=target_interval
+            )
+
+            # ----------- 阶段1：block开始提示 -----------
+            iframe = 0
+            while iframe < int(fps * display_time):
+                VSObject.text_response.text = f"RSVP Block {block_idx + 1} 正在开始..."
+                VSObject.text_response.draw()
+                iframe += 1
+                win.flip()
+
+            # ----------- 阶段2：图片刺激循环 -----------
+            # all_stims = [visual.ImageStim(win, image=path, size=(500,500)) for path in image_sequence]
+
+            # for idx, stim in enumerate(all_stims):
+                
+            #     for frame in range(n_frames):
+            #         stim.draw()
+                    # if port:
+                    #     if frame == 0 and idx in target_indices:
+                    #         win.callOnFlip(port.setData, 103)
+                    #     elif frame == 1:
+                    #         win.callOnFlip(port.setData, 0) 
+                        
+                        
+                    # win.flip()
+                    # if port:
+                    #     if frame == 0:
+                    #         win.callOnFlip(port.setData, 103 if idx in target_indices else 101)
+                    #     elif frame == 1:
+                    #         win.callOnFlip(port.setData, 0)
+                    # win.flip()
+            all_stims = [visual.ImageStim(win, image=path, size=(500,500)) for path in image_sequence]
+
+            for idx, stim in enumerate(all_stims):
+                for frame in range(n_frames):
+                    stim.draw()
+                    
+                    if port:
+                        # 每5次刺激发送一次标签
+                        if frame == 0 and (idx % 5 == 0):
+                            win.callOnFlip(port.setData, 103 if idx in target_indices else 101)
+                        elif frame == 1:
+                            win.callOnFlip(port.setData, 0)
+                    
+                    win.flip()   
+
+            # ----------- 阶段3：反馈/休息 -----------
+            if real_inlet is not None:
+                VSObject.text_response.text = f"等待在线分析反馈..."
+                VSObject.text_response.draw()
+                win.flip()
+                samples, timestamp = real_inlet.pull_sample(timeout=3.0)
+                if samples is not None:
+                    predict_id = int(samples[0])
+                    VSObject.text_response.text = f"本轮预测结果：{predict_id}"
+                else:
+                    VSObject.text_response.text = "未获取到在线反馈"
+                iframe = 0
+                while iframe < int(fps * 2):
+                    VSObject.text_response.draw()
+                    iframe += 1
+                    win.flip()
+            else:
+                iframe = 0
+                while iframe < int(fps * rest_time):
+                    VSObject.text_response.text = f"Block {block_idx + 1} 完成，请休息..."
+                    VSObject.text_response.draw()
+                    iframe += 1
+                    win.flip()
+
+    elif pdim == "ssvep":
         # config experiment settings
         conditions = [{"id": i} for i in range(VSObject.n_elements)]
-        trials = data.TrialHandler(
-            conditions,
-            nrep,
-            name="experiment",
-            method="random")
+        trials = data.TrialHandler(conditions, nrep, name="experiment", method="random")
 
         # start routine
         # episode 1: display speller interface
@@ -2564,8 +2649,7 @@ def paradigm(
 
             # initialise index position
             id = int(trial["id"])
-            position = VSObject.stim_pos[id] + \
-                np.array([0, VSObject.stim_width / 2])
+            position = VSObject.stim_pos[id] + np.array([0, VSObject.stim_width / 2])
             VSObject.index_stimuli.setPos(position)
 
             # phase I: speller & index (eye shifting)
@@ -2633,11 +2717,7 @@ def paradigm(
     elif pdim == "avep":
         # config experiment settings
         conditions = [{"id": i} for i in range(VSObject.n_elements)]
-        trials = data.TrialHandler(
-            conditions,
-            nrep,
-            name="experiment",
-            method="random")
+        trials = data.TrialHandler(conditions, nrep, name="experiment", method="random")
         # start routine
         # episode 1: display speller interface
         iframe = 0
@@ -2659,8 +2739,7 @@ def paradigm(
                 break
             # initialise index position
             id = int(trial["id"])
-            position = VSObject.stim_pos[id] + \
-                np.array([0, VSObject.tex_height / 2])
+            position = VSObject.stim_pos[id] + np.array([0, VSObject.tex_height / 2])
             VSObject.index_stimuli.setPos(position)
 
             # phase I: speller & index (eye shifting)
@@ -2742,11 +2821,7 @@ def paradigm(
     elif pdim == "p300":
         # config experiment settings
         conditions = [{"id": i} for i in range(VSObject.n_elements)]
-        trials = data.TrialHandler(
-            conditions,
-            nrep,
-            name="experiment",
-            method="random")
+        trials = data.TrialHandler(conditions, nrep, name="experiment", method="random")
 
         # start routine
         # episode 1: display speller interface
@@ -2770,8 +2845,7 @@ def paradigm(
 
             # initialise index position
             id = int(trial["id"])
-            position = VSObject.stim_pos[id] + \
-                np.array([0, VSObject.stim_width / 2])
+            position = VSObject.stim_pos[id] + np.array([0, VSObject.stim_width / 2])
             VSObject.index_stimuli.setPos(position)
 
             # phase I: speller & index (eye shifting)
@@ -2869,11 +2943,7 @@ def paradigm(
             {"id": 1, "name": "right_hand"},
             # {"id": 2, "name": "both_hands"},
         ]
-        trials = data.TrialHandler(
-            conditions,
-            nrep,
-            name="experiment",
-            method="random")
+        trials = data.TrialHandler(conditions, nrep, name="experiment", method="random")
 
         # start routine
         # episode 1: display speller interface
@@ -2979,27 +3049,15 @@ def paradigm(
                     win.flip()
 
     elif pdim == "con-ssvep":
-        # Initialize global variables before using them
         global online_text_pos, online_symbol_text
-        online_text_pos = VSObject.reset_res_pos
-        online_symbol_text = VSObject.reset_res_text
 
         if inlet:
             MyTherad = GetPlabel_MyTherad(inlet)
-            # Pass necessary attributes to MyTherad instance
-            MyTherad.res_text_pos = VSObject.reset_res_pos
-            MyTherad.symbol_text = VSObject.reset_res_text
-            MyTherad.symbols = VSObject.symbols
-            MyTherad.symbol_height = VSObject.symbol_height
             MyTherad.feedbackThread()
 
         # config experiment settings
         conditions = [{"id": i} for i in range(VSObject.n_elements)]
-        trials = data.TrialHandler(
-            conditions,
-            nrep,
-            name="experiment",
-            method="random")
+        trials = data.TrialHandler(conditions, nrep, name="experiment", method="random")
 
         # start routine
         # episode 1: display speller interface
@@ -3025,8 +3083,7 @@ def paradigm(
 
             # initialise index position
             id = int(trial["id"])
-            position = VSObject.stim_pos[id] + \
-                np.array([0, VSObject.stim_width / 2])
+            position = VSObject.stim_pos[id] + np.array([0, VSObject.stim_width / 2])
             VSObject.index_stimuli.setPos(position)
 
             # phase I: speller & index (eye shifting)
@@ -3080,11 +3137,7 @@ def paradigm(
 
     elif pdim == "ssavep":
         conditions = [{"id": i} for i in range(VSObject.n_elements)]
-        trials = data.TrialHandler(
-            conditions,
-            nrep,
-            name="experiment",
-            method="random")
+        trials = data.TrialHandler(conditions, nrep, name="experiment", method="random")
 
         # start routine
         # episode 1: display speller interface
@@ -3114,8 +3167,7 @@ def paradigm(
 
             # initialise index position
             id = int(trial["id"])
-            position = VSObject.stim_pos[id] + \
-                np.array([0, VSObject.stim_width / 2])
+            position = VSObject.stim_pos[id] + np.array([0, VSObject.stim_width / 2])
             VSObject.index_stimuli.setPos(position)
 
             # phase I: speller & index (eye shifting)

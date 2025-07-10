@@ -7,7 +7,7 @@
 Tsinghua BCI Lab.
 """
 import os
-import tarfile
+import zipfile
 from typing import Union, Optional, Dict, List, cast
 from pathlib import Path
 
@@ -16,7 +16,6 @@ import py7zr
 from mne import create_info
 from mne.io import RawArray, Raw
 from mne.channels import make_standard_montage
-
 from .base import BaseDataset
 from ..utils.download import mne_data_path
 from ..utils.io import loadmat
@@ -28,8 +27,6 @@ Wang2016_URL = "http://bci.med.tsinghua.edu.cn/upload/yijun/"
 # Wang2016_URL = "ftp://sccn.ucsd.edu/pub/ssvep_benchmark_dataset/"
 # Wang2016_URL = 'http://www.thubci.com/uploads/down/' # This may work
 BETA_URL = "http://bci.med.tsinghua.edu.cn/upload/liubingchuan/"  # 403 error
-# Download the unfiltered version of the BETA Database (wof)
-# BETA_URL = "https://bci.med.tsinghua.edu.cn/upload/liubingchuan_BETA_wof/"
 # BETA_URL = 'https://figshare.com/articles/The_BETA_database/12264401'
 
 
@@ -94,28 +91,152 @@ class Wang2016(BaseDataset):
     """
 
     _CHANNELS = [
-        "FP1", "FPZ", "FP2", "AF3", "AF4", "F7", "F5", "F3", "F1", "FZ", "F2",
-        "F4", "F6", "F8", "FT7", "FC5", "FC3", "FC1", "FCZ", "FC2", "FC4",
-        "FC6", "FT8", "T7", "C5", "C3", "C1", "CZ", "C2", "C4", "C6", "T8",
-        "TP7", "CP5", "CP3", "CP1", "CPZ", "CP2", "CP4", "CP6", "TP8", "P7",
-        "P5", "P3", "P1", "PZ", "P2", "P4", "P6", "P8", "PO7", "PO5", "PO3",
-        "POZ", "PO4", "PO6", "PO8", "O1", "OZ", "O2",
+        "FP1",
+        "FPZ",
+        "FP2",
+        "AF3",
+        "AF4",
+        "F7",
+        "F5",
+        "F3",
+        "F1",
+        "FZ",
+        "F2",
+        "F4",
+        "F6",
+        "F8",
+        "FT7",
+        "FC5",
+        "FC3",
+        "FC1",
+        "FCZ",
+        "FC2",
+        "FC4",
+        "FC6",
+        "FT8",
+        "T7",
+        "C5",
+        "C3",
+        "C1",
+        "CZ",
+        "C2",
+        "C4",
+        "C6",
+        "T8",
+        "TP7",
+        "CP5",
+        "CP3",
+        "CP1",
+        "CPZ",
+        "CP2",
+        "CP4",
+        "CP6",
+        "TP8",
+        "P7",
+        "P5",
+        "P3",
+        "P1",
+        "PZ",
+        "P2",
+        "P4",
+        "P6",
+        "P8",
+        "PO7",
+        "PO5",
+        "PO3",
+        "POZ",
+        "PO4",
+        "PO6",
+        "PO8",
+        "O1",
+        "OZ",
+        "O2",
     ]
 
     _FREQS = [
-        8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
-        8.2, 9.2, 10.2, 11.2, 12.2, 13.2, 14.2, 15.2,
-        8.4, 9.4, 10.4, 11.4, 12.4, 13.4, 14.4, 15.4,
-        8.6, 9.6, 10.6, 11.6, 12.6, 13.6, 14.6, 15.6,
-        8.8, 9.8, 10.8, 11.8, 12.8, 13.8, 14.8, 15.8,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        8.2,
+        9.2,
+        10.2,
+        11.2,
+        12.2,
+        13.2,
+        14.2,
+        15.2,
+        8.4,
+        9.4,
+        10.4,
+        11.4,
+        12.4,
+        13.4,
+        14.4,
+        15.4,
+        8.6,
+        9.6,
+        10.6,
+        11.6,
+        12.6,
+        13.6,
+        14.6,
+        15.6,
+        8.8,
+        9.8,
+        10.8,
+        11.8,
+        12.8,
+        13.8,
+        14.8,
+        15.8,
     ]
 
     _PHASES = [
-        0.0, 0.5, 1.0, 1.5, 0.0, 0.5, 1.0, 1.5,
-        0.5, 1.0, 1.5, 0.0, 0.5, 1.0, 1.5, 0.0,
-        1.0, 1.5, 0.0, 0.5, 1.0, 1.5, 0.0, 0.5,
-        1.5, 0.0, 0.5, 1.0, 1.5, 0.0, 0.5, 1.0,
-        0.0, 0.5, 1.0, 1.5, 0.0, 0.5, 1.0, 1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
     ]
 
     _EVENTS = {str(freq): (i + 1, (0, 5)) for i, freq in enumerate(_FREQS)}
@@ -140,7 +261,7 @@ class Wang2016(BaseDataset):
         verbose: Optional[Union[bool, str, int]] = None,
     ) -> List[List[Union[str, Path]]]:
         if subject not in self.subjects:
-            raise ValueError("Invalid subject id")
+            raise (ValueError("Invalid subject id"))
 
         subject = cast(int, subject)
         url = "{:s}S{:d}.mat.7z".format(Wang2016_URL, subject)
@@ -153,12 +274,11 @@ class Wang2016(BaseDataset):
             update_path=update_path,
         )
 
-        subject_file = file_dest[:-3]
-        if not os.path.exists(subject_file):
+        if not os.path.exists(file_dest[:-3]):
             # decompression the data
             with py7zr.SevenZipFile(file_dest, "r") as archive:
                 archive.extractall(path=Path(file_dest).parent)
-        dests = [[subject_file]]
+        dests = [[file_dest[:-3]]]
         return dests
 
     def _get_single_subject_data(
@@ -180,6 +300,7 @@ class Wang2016(BaseDataset):
         montage.rename_channels(
             {ch_name: ch_name.upper() for ch_name in montage.ch_names}
         )
+        # montage.ch_names = [ch_name.upper() for ch_name in montage.ch_names]
         ch_names = [ch_name.upper() for ch_name in self._CHANNELS]
         ch_names.insert(32, "M1")
         ch_names.insert(42, "M2")
@@ -195,8 +316,11 @@ class Wang2016(BaseDataset):
 
         runs = dict()
         for i in range(data.shape[1]):
-            raw_data = np.reshape(data[:, i, ...], (data.shape[0], -1))
-            raw = RawArray(data=raw_data, info=info)
+            raw = RawArray(
+                data=np.reshape(data[:, i, ...],
+                                (data.shape[0], -1)),
+                info=info
+            )
             raw.set_montage(montage)
             runs["run_{:d}".format(i)] = raw
 
@@ -241,27 +365,151 @@ class BETA(BaseDataset):
     """
 
     _CHANNELS = [
-        "FP1", "FPZ", "FP2", "AF3", "AF4", "F7", "F5", "F3", "F1", "FZ", "F2",
-        "F4", "F6", "F8", "FT7", "FC5", "FC3", "FC1", "FCZ", "FC2", "FC4",
-        "FC6", "FT8", "T7", "C5", "C3", "C1", "CZ", "C2", "C4", "C6", "T8",
-        "TP7", "CP5", "CP3", "CP1", "CPZ", "CP2", "CP4", "CP6", "TP8", "P7",
-        "P5", "P3", "P1", "PZ", "P2", "P4", "P6", "P8", "PO7", "PO5", "PO3",
-        "POZ", "PO4", "PO6", "PO8", "O1", "OZ", "O2",
+        "FP1",
+        "FPZ",
+        "FP2",
+        "AF3",
+        "AF4",
+        "F7",
+        "F5",
+        "F3",
+        "F1",
+        "FZ",
+        "F2",
+        "F4",
+        "F6",
+        "F8",
+        "FT7",
+        "FC5",
+        "FC3",
+        "FC1",
+        "FCZ",
+        "FC2",
+        "FC4",
+        "FC6",
+        "FT8",
+        "T7",
+        "C5",
+        "C3",
+        "C1",
+        "CZ",
+        "C2",
+        "C4",
+        "C6",
+        "T8",
+        "TP7",
+        "CP5",
+        "CP3",
+        "CP1",
+        "CPZ",
+        "CP2",
+        "CP4",
+        "CP6",
+        "TP8",
+        "P7",
+        "P5",
+        "P3",
+        "P1",
+        "PZ",
+        "P2",
+        "P4",
+        "P6",
+        "P8",
+        "PO7",
+        "PO5",
+        "PO3",
+        "POZ",
+        "PO4",
+        "PO6",
+        "PO8",
+        "O1",
+        "OZ",
+        "O2",
     ]
 
     _FREQS = [
-        8.6, 8.8, 9.0, 9.2, 9.4, 9.6, 9.8, 10.0,
-        10.2, 10.4, 10.6, 10.8, 11.0, 11.2, 11.4, 11.6,
-        11.8, 12.0, 12.2, 12.4, 12.6, 12.8, 13.0, 13.2,
-        13.4, 13.6, 13.8, 14.0, 14.2, 14.4, 14.6, 14.8,
-        15.0, 15.2, 15.4, 15.6, 15.8, 8.0, 8.2, 8.4,
+        8.6,
+        8.8,
+        9,
+        9.2,
+        9.4,
+        9.6,
+        9.8,
+        10,
+        10.2,
+        10.4,
+        10.6,
+        10.8,
+        11,
+        11.2,
+        11.4,
+        11.6,
+        11.8,
+        12,
+        12.2,
+        12.4,
+        12.6,
+        12.8,
+        13,
+        13.2,
+        13.4,
+        13.6,
+        13.8,
+        14,
+        14.2,
+        14.4,
+        14.6,
+        14.8,
+        15,
+        15.2,
+        15.4,
+        15.6,
+        15.8,
+        8,
+        8.2,
+        8.4,
     ]
     _PHASES = [
-        1.5, 0.0, 0.5, 1.0, 1.5, 0.0, 0.5, 1.0,
-        1.5, 0.0, 0.5, 1.0, 1.5, 0.0, 0.5, 1.0,
-        1.5, 0.0, 0.5, 1.0, 1.5, 0.0, 0.5, 1.0,
-        1.5, 0.0, 0.5, 1.0, 1.5, 0.0, 0.5, 1.0,
-        1.5, 0.0, 0.5, 1.0, 1.5, 0.0, 0.5, 1.0,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
+        1.5,
+        0,
+        0.5,
+        1,
     ]
 
     _EVENTS = {str(freq): (i + 1, (0, 2)) for i, freq in enumerate(_FREQS)}
@@ -286,25 +534,23 @@ class BETA(BaseDataset):
         verbose: Optional[Union[bool, str, int]] = None,
     ) -> List[List[Union[str, Path]]]:
         if subject not in self.subjects:
-            raise ValueError("Invalid subject id")
+            raise (ValueError("Invalid subject id"))
 
         subject = cast(int, subject)
         if subject < 11:
-            archive_name = "S1-S10.tar.gz"
+            url = "{:s}S1-S10.mat.zip".format(BETA_URL)
         elif subject < 21:
-            archive_name = "S11-S20.tar.gz"
+            url = "{:s}S11-S20.mat.zip".format(BETA_URL)
         elif subject < 31:
-            archive_name = "S21-S30.tar.gz"
+            url = "{:s}S21-S30.mat.zip".format(BETA_URL)
         elif subject < 41:
-            archive_name = "S31-S40.tar.gz"
+            url = "{:s}S31-S40.mat.zip".format(BETA_URL)
         elif subject < 51:
-            archive_name = "S41-S50.tar.gz"
+            url = "{:s}S41-S50.mat.zip".format(BETA_URL)
         elif subject < 61:
-            archive_name = "S51-S60.tar.gz"
+            url = "{:s}S51-S60.mat.zip".format(BETA_URL)
         else:
-            archive_name = "S61-S70.tar.gz"
-
-        url = "{:s}{:s}".format(BETA_URL, archive_name)
+            url = "{:s}S61-S70.mat.zip".format(BETA_URL)
 
         file_dest = mne_data_path(
             url,
@@ -316,13 +562,15 @@ class BETA(BaseDataset):
         )
 
         parent_dir = Path(file_dest).parent
-        subject_file = os.path.join(parent_dir, "S{:d}.mat".format(subject))
 
-        if not os.path.exists(subject_file):
+        if not os.path.exists(os.path.join(parent_dir,
+                                           "S{:d}.mat".format(subject))):
             # decompression the data
-            with tarfile.open(file_dest, "r:gz") as archive:
+            with zipfile.ZipFile(file_dest, "r") as archive:
                 archive.extractall(path=parent_dir)
-        dests: List[List[Union[str, Path]]] = [[subject_file]]
+        dests: List[List[Union[str, Path]]] = [
+            [os.path.join(parent_dir, "S{:d}.mat".format(subject))]
+        ]
         return dests
 
     def _get_single_subject_data(
@@ -341,6 +589,7 @@ class BETA(BaseDataset):
         montage.rename_channels(
             {ch_name: ch_name.upper() for ch_name in montage.ch_names}
         )
+        # montage.ch_names = [ch_name.upper() for ch_name in montage.ch_names]
         ch_names = [ch_name.upper() for ch_name in self._CHANNELS]
         ch_names.insert(32, "M1")
         ch_names.insert(42, "M2")
@@ -356,8 +605,10 @@ class BETA(BaseDataset):
 
         runs = dict()
         for i in range(data.shape[-2]):
-            raw_data = np.reshape(data[..., i, :], (data.shape[0], -1))
-            raw = RawArray(data=raw_data, info=info)
+            raw = RawArray(
+                data=np.reshape(data[..., i, :],
+                                (data.shape[0], -1)), info=info
+            )
             raw.set_montage(montage)
             runs["run_{:d}".format(i)] = raw
 
